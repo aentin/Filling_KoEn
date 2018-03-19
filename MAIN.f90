@@ -52,8 +52,9 @@ write(*,'(A)') 'And, unfortunately, the program cannot read Cyrillic pathways'
 
 !directory = "C:\DATA\TEST\"              ! Директория, в которой будем работать ! ИСПРАВИТЬ!!!
 write(*,'(A\)') 'Enter input grid file name (with extension): '
-read(*,'(A)') inputfile
-!inputfile = trim(directory) // trim(inputfile) !ИСПРАВИТЬ!
+!read(*,'(A)') inputfile
+!inputfile = "D:\DATA\FILLING\ex.grd"
+inputfile = "D:\DATA\FILLING\khoper.grd"
 
 ! Чтение файла
 
@@ -88,7 +89,7 @@ nodata = GRD_NODATA
 allocate (Zout(Nx,Ny))
 Zout(1:Nx,1:Ny) = nodata
 call filling(Z,Zout,Nx,Ny,Zmin,Zmax,StepX,StepY,GRD_NODATA)
-print *, "Ready to drop a grid which contains filled DEM"
+print *, "Ready to drop filled DEM"
 call save_grd(Zout,Nx,Ny,Xmin,Ymin,Xmax,Ymax)
 
 ! Переход к концу программы
@@ -146,7 +147,8 @@ GRD_Header%Zmax = maxval(Zout(1:Nx,1:Ny))
 
 !directory = "C:\DATA\TEST\"              ! Директория, в которой будем работать ! ИСПРАВИТЬ!!!
 write(*,'(A\)') 'Enter output grid filename (with extension): '
-read(*,'(A)') outputfile
+!read(*,'(A)') outputfile
+outputfile = "D:\DATA\FILLING\out.grd"
 !outputfile = trim(directory) // trim(outputfile) !Исправить!
 
     open(file = outputfile, unit=20,status='unknown',form='binary')

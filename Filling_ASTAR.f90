@@ -1,6 +1,6 @@
 ! Программа предназначена для заполнения локальных понижений через своеобразную реализацию алгоритма А*
     
-subroutine filling_ASTAR(input_model,depr,col_out,row_out,output_model,Nx,Ny,Zmax,StepX,StepY,nodata)
+subroutine filling_ASTAR(input_model,depr,cout,rout,Zo,output_model,Nx,Ny,Zmax,StepX,StepY,nodata)
     
     use priority_queue_mod
 
@@ -13,7 +13,8 @@ subroutine filling_ASTAR(input_model,depr,col_out,row_out,output_model,Nx,Ny,Zma
     integer :: Nx,Ny ! Размерность матриц
     real(8) :: StepX,StepY ! Шаг сетки (в предположении, что шаги по X и Y могут различаться)
     real :: Zmax ! Максимальная высота в пределах исходной модели. Должна быть прописана в свойствах файла
-    integer :: row_out, col_out ! Колонка и столбец ячейки выхода
+    integer :: cout, rout  ! Колонка и столбец ячейки выхода
+    real :: Zo ! Высота ячейки-выхода
     real :: nodata
     logical :: connect_depressions
     
@@ -77,7 +78,7 @@ subroutine filling_ASTAR(input_model,depr,col_out,row_out,output_model,Nx,Ny,Zma
     enddo
     
     ! Записываем индексы ячейки-выхода в переменные, которые будут использованы в цикле
-    c1 = col_out; r1 = row_out; 
+    c1 = cout; r1 = rout; 
     
     ! Подготовительные операции
     list_cells(1:Nx*Ny) = 0 ! Общий список ячеек
@@ -124,15 +125,17 @@ subroutine filling_ASTAR(input_model,depr,col_out,row_out,output_model,Nx,Ny,Zma
                 ! Если FALSE, каждое понижение будет обрабатываться отдельно
                 Select case (connect_depressions)
                 case (.true.)
-                    depr(c2,r2) = 1
-                    flag_status(c2,r2) = 3
-                    call add_cell_1(c2,r2,q1,q2)
-                    
+                    if (input_model(c2,r2) > Zo) then
+                        output_model(c2,r2) = nodata
+                        depr(c2,r2) = 1
+                        flag_status(c2,r2) = 3
+                        call add_cell_1(c2,r2,q1,q2)
+                    endif
                     !!!call q%enqueue(Z(c2,r2), c2, r2)! Добавляем в очередь
                     
                 case (.false.)
                     flag_status(c2,r2) = 2
-                    if (Z1 > input_model(c2,r2) .and. input_model(c2,r2) > input_model(col_out,row_out)) then
+                    if (Z1 > input_model(c2,r2) .and. input_model(c2,r2) > input_model(cout,rout)) then
                     Z1 = input_model(c2,r2)
                     c3 = c2; r3 = r2
                     endif
@@ -143,7 +146,7 @@ subroutine filling_ASTAR(input_model,depr,col_out,row_out,output_model,Nx,Ny,Zma
                 q3 = q3 + 1
                 list_borders(q3) = two_to_one(c2,r2)
                 ! Инструкция поиска минимальной высоты среди граничных ячеек. По моему скромному мнению, она не нужна
-                if (Z1 > input_model(c2,r2) .and. input_model(c2,r2) > input_model(col_out,row_out)) then
+                if (Z1 > input_model(c2,r2) .and. input_model(c2,r2) > input_model(cout,rout)) then
                     Z1 = input_model(c2,r2)
                     c3 = c2; r3 = r2
                 endif
@@ -162,7 +165,7 @@ subroutine filling_ASTAR(input_model,depr,col_out,row_out,output_model,Nx,Ny,Zma
     ! Ищем высоты для интерполяции (Z0 и Z1) 
     !! Пытаемся уменьшить высоту точки выхода
     !!call decreasing_outlet()
-    Z0 = output_model(col_out,row_out)
+    Z0 = output_model(cout,rout)
     ! Пытаемся «приподнять» граничные ячейки.
     !!call increasing_border(Z1)
     
@@ -184,7 +187,7 @@ subroutine filling_ASTAR(input_model,depr,col_out,row_out,output_model,Nx,Ny,Zma
         do
             s = way_prev(c1,r1)
             call one_to_two(c2,r2,s)
-            if (c2 == col_out .and. r2 == row_out) exit ! Выходим, если последующая точка является точкой выхода
+            if (c2 == cout .and. r2 == rout) exit ! Выходим, если последующая точка является точкой выхода
             Z_temp = Z0 + (dZ/length)*waylength(c2,r2)
             if (output_model(c2,r2) == nodata .or. output_model(c2,r2) > Z_temp) output_model(c2,r2) = Z_temp
             flag_status(c2,r2) = 1
@@ -192,7 +195,7 @@ subroutine filling_ASTAR(input_model,depr,col_out,row_out,output_model,Nx,Ny,Zma
         enddo      
     enddo
     
-    flag_status(col_out,row_out) = 1
+    flag_status(cout,rout) = 1
     
     ! Заполнение точек, через которые не проходит кратчайший путь
     ! Заполнение производится путём экстраполяции. Используются: высота точки выхода (Z0) и высота ближайшей_уже_обработанной точки (Z2)
@@ -294,10 +297,10 @@ subroutine decreasing_outlet()
     real(4) :: Z0_temp
     real(4),parameter :: threshold = 0.0001
     
-    Z0_temp = output_model(col_out,row_out)
+    Z0_temp = output_model(cout,rout)
     k = 0
     do k = 1,8
-        c2 = col_out+kx(k); r2 = row_out+ky(k)
+        c2 = cout+kx(k); r2 = rout+ky(k)
         
         if (c2<1.or.c2>Nx.or.r2<1.or.r2>Ny) cycle
         if (depr(c2,r2) > 0) cycle ! Не рассматриваем ячейки из понижений
@@ -305,9 +308,9 @@ subroutine decreasing_outlet()
             Z0_temp = output_model(c2,r2) + threshold
         endif
     enddo
-    if (output_model(col_out,row_out) > Z0_temp) then
-        output_model(col_out,row_out) = Z0_temp 
-        print *, "Outlet point height decreased from ", input_model(col_out,row_out), " to ", Z0_temp
+    if (output_model(cout,rout) > Z0_temp) then
+        output_model(cout,rout) = Z0_temp 
+        print *, "Outlet point height decreased from ", input_model(cout,rout), " to ", Z0_temp
     else
         continue
         print *, "Outlet point height did not decreased"
