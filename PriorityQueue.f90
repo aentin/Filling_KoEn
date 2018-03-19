@@ -6,6 +6,7 @@ implicit none
 
 type node
   real      :: priority ! Elevation of current node
+  integer   :: priority2 ! Global addition order
   integer   :: c ! column index of current node
   integer   :: r ! row index of current node
 end type
@@ -23,7 +24,8 @@ contains
  
 subroutine siftdown(this, a)
   class (queue)           :: this
-  integer                 :: a, parent, child
+  type(node)              :: temp
+  integer                 :: a, parent, child, j
   associate (x => this%buf)
   parent = a
   do while(parent*2 <= this%n)
@@ -31,14 +33,25 @@ subroutine siftdown(this, a)
     if (child + 1 <= this%n) then 
       !if (x(child+1)%priority > x(child)%priority ) then
       if (x(child+1)%priority < x(child)%priority) then
-        child = child +1 
+          child = child +1
+      else if (x(child+1)%priority == x(child)%priority) then
+          if (x(child+1)%priority2 < x(child)%priority2) then
+              child = child +1
+          endif
       end if
     end if
     !if (x(parent)%priority < x(child)%priority) then
-    if (x(parent)%priority >= x(child)%priority) then
+    if (x(parent)%priority > x(child)%priority) then
       x([child, parent]) = x([parent, child])
       parent = child
-    else
+    else if (x(parent)%priority == x(child)%priority) then
+        if (x(parent)%priority2 > x(child)%priority2) then
+            x([child, parent]) = x([parent, child])
+            parent = child
+        else
+            exit
+        endif
+    else 
       exit
     end if  
   end do      
@@ -54,14 +67,15 @@ function top(this) result (res)
   call this%siftdown(1)
 end function
  
-subroutine enqueue(this, priority, c, r)
+subroutine enqueue(this, priority, priority2, c, r)
   class(queue), intent(inout) :: this
   real                        :: priority
-  integer                     :: c, r
+  integer                     :: priority2, c, r
   type(node)                  :: x
   type(node), allocatable     :: tmp(:)
   integer                     :: i
   x%priority = priority
+  x%priority2 = priority2
   x%c = c
   x%r = r
   this%n = this%n +1  
@@ -79,4 +93,25 @@ subroutine enqueue(this, priority, c, r)
     call this%siftdown(i)
   end do
 end subroutine
+
 end module 
+!
+!subroutine heapsort(a)
+! 
+!   real, intent(in out) :: a(0:)
+!   integer :: start, n, bottom
+!   real :: temp
+! 
+!   n = size(a)
+!   do start = (n - 2) / 2, 0, -1
+!     call siftdown(a, start, n);
+!   end do
+! 
+!   do bottom = n - 1, 1, -1
+!     temp = a(0)
+!     a(0) = a(bottom)
+!     a(bottom) = temp;
+!     call siftdown(a, 0, bottom)
+!   end do
+!end subroutine heapsort
+
